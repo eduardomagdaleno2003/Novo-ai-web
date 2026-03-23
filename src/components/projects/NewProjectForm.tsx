@@ -146,7 +146,7 @@ export function NewProjectForm() {
       setLines(prev => [...prev, `👥 Equipo: ${selectedAgentes.map(a => a.nombre).join(', ')}`])
     }
 
-    const agentesSeleccionados = selectedAgentes.map(a => a.nombre)
+    const agentesSeleccionados = selectedAgentes.map(a => ({ nombre: a.nombre, rol: a.rol }))
 
     const res = await fetch('/api/run-project', {
       method: 'POST',
