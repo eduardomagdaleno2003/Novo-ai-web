@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const { tarea, fechas } = await req.json()
+  const { tarea, fechas, agentes } = await req.json()
 
   if (!tarea?.trim()) {
     return new Response('Falta la descripción del proyecto', { status: 400 })
@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
       const python = process.env.PYTHON_PATH ?? '/Library/Frameworks/Python.framework/Versions/3.14/bin/python3'
       const args = ['/Users/eduardomagdaleno/dos_agentes.py', tarea]
       if (fechas?.length) args.push(JSON.stringify(fechas))
+      else args.push('[]')
+      if (agentes?.length) args.push(JSON.stringify(agentes))
       const proc = spawn(python, args, {
         env: { ...process.env, PYTHONUNBUFFERED: '1' },
         cwd: '/Users/eduardomagdaleno',

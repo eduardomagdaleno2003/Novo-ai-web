@@ -157,10 +157,12 @@ export function NewProjectForm() {
       setLines(prev => [...prev, `👥 Equipo: ${selectedAgentes.map(a => a.nombre).join(', ')}`])
     }
 
+    const agentesSeleccionados = selectedAgentes.map(a => a.nombre)
+
     const res = await fetch('/api/run-project', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tarea, fechas }),
+      body: JSON.stringify({ tarea, fechas, agentes: agentesSeleccionados }),
     })
 
     const reader = res.body!.getReader()
