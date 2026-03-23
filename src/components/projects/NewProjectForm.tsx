@@ -4,14 +4,19 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Zap, CheckCircle2, XCircle, ArrowRight, ArrowLeft, Users, Mail } from 'lucide-react'
+import type { Agente } from '@/types/database'
 
-// ── Agentes fijos del sistema ─────────────────────────────────────────────────
-
-const AGENTES_SISTEMA = [
-  { id: 'jefe',     nombre: 'Carlos Mendoza',      rol: 'Director General',          depto: 'Product & Tech',   avatar: 'bg-blue-600',    dot: 'bg-blue-400' },
-  { id: 'analista', nombre: 'Miguel Ángel Torres',  rol: 'Analista Senior de Datos',  depto: 'Data & Analytics', avatar: 'bg-violet-600',  dot: 'bg-violet-400' },
-  { id: 'rh',       nombre: 'Laura Sánchez',        rol: 'Directora de Estrategia',   depto: 'People & Ops',     avatar: 'bg-orange-600',  dot: 'bg-orange-400' },
+// ── Colores de avatar ─────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  'bg-blue-600', 'bg-violet-600', 'bg-orange-600', 'bg-emerald-600',
+  'bg-pink-600',  'bg-cyan-600',   'bg-red-600',    'bg-yellow-600',
 ]
+const DOT_COLORS = [
+  'bg-blue-400', 'bg-violet-400', 'bg-orange-400', 'bg-emerald-400',
+  'bg-pink-400',  'bg-cyan-400',   'bg-red-400',    'bg-yellow-400',
+]
+function avatarColor(idx: number) { return AVATAR_COLORS[idx % AVATAR_COLORS.length] }
+function dotColor(idx: number)    { return DOT_COLORS[idx % DOT_COLORS.length] }
 
 function initials(nombre: string) {
   return nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
@@ -52,8 +57,10 @@ export function NewProjectForm() {
   const [runAgents, setRunAgents] = useState(true)
   const [phase, setPhase] = useState<Phase>('step1')
 
-  // Step 2 — agent selection (fijos, no dependen de la DB)
-  const [selected, setSelected] = useState<Set<string>>(new Set(AGENTES_SISTEMA.map(a => a.id)))
+  // Step 2 — agents from DB
+  const [agentes, setAgentes] = useState<Agente[]>([])
+  const [loadingAgentes, setLoadingAgentes] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   // Step 3 — email dates
   const [emailDates, setEmailDates] = useState(DEFAULT_DATES)
@@ -69,8 +76,16 @@ export function NewProjectForm() {
 
   // ── Step 1 → Step 2 ───────────────────────────────────────────────────────
 
-  function goToStep2() {
+  async function goToStep2() {
     if (!nombre.trim()) return
+    setLoadingAgentes(true)
+    const { createClient } = await import('@/lib/supabase/client')
+    const supabase = createClient()
+    const { data } = await supabase.from('agentes').select('*').eq('estado', 'active').order('nombre')
+    const lista = data ?? []
+    setAgentes(lista)
+    setSelected(new Set(lista.map(a => a.id)))
+    setLoadingAgentes(false)
     setPhase('step2')
   }
 
@@ -84,8 +99,8 @@ export function NewProjectForm() {
   }
 
   function selectAll() {
-    if (selected.size === AGENTES_SISTEMA.length) setSelected(new Set())
-    else setSelected(new Set(AGENTES_SISTEMA.map(a => a.id)))
+    if (selected.size === agentes.length) setSelected(new Set())
+    else setSelected(new Set(agentes.map(a => a.id)))
   }
 
   function updateEmailDate(i: number, field: 'date' | 'time', value: string) {
@@ -95,7 +110,7 @@ export function NewProjectForm() {
   // ── Final submit ──────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    const selectedAgentes = AGENTES_SISTEMA.filter(a => selected.has(a.id))
+    const selectedAgentes = agentes.filter(a => selected.has(a.id))
     const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
 
@@ -121,7 +136,7 @@ export function NewProjectForm() {
 
     setPhase('running')
     const teamNote = selectedAgentes.length > 0
-      ? ` Equipo asignado: ${selectedAgentes.map(a => `${a.nombre} (${a.depto})`).join(', ')}.`
+      ? ` Equipo asignado: ${selectedAgentes.map(a => `${a.nombre} (${a.rol})`).join(', ')}.`
       : ''
     const tarea = `${nombre}${descripcion ? '. ' + descripcion : ''}${teamNote}`
     const fechas = emailDates.map(e => `${e.date} ${e.time}`)
@@ -244,8 +259,8 @@ export function NewProjectForm() {
         </div>
 
         <div className="flex gap-3 pt-1">
-          <Button type="button" disabled={!nombre.trim()} onClick={goToStep2}>
-            <><Users className="w-4 h-4" /> Siguiente</>
+          <Button type="button" disabled={!nombre.trim() || loadingAgentes} onClick={goToStep2}>
+            {loadingAgentes ? 'Cargando...' : <><Users className="w-4 h-4" /> Siguiente</>}
           </Button>
           <Button type="button" variant="secondary" onClick={() => router.back()}>
             Cancelar
@@ -271,12 +286,12 @@ export function NewProjectForm() {
             onClick={selectAll}
             className="text-xs text-violet-400 hover:text-violet-300 transition-colors font-medium"
           >
-            {selected.size === AGENTES_SISTEMA.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+            {selected.size === agentes.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 max-h-[380px] overflow-y-auto pr-1">
-          {AGENTES_SISTEMA.map(a => {
+        <div className="grid grid-cols-2 gap-2 max-h-[380px] overflow-y-auto pr-1">
+          {agentes.map((a, idx) => {
             const isSelected = selected.has(a.id)
             return (
               <button
@@ -298,16 +313,16 @@ export function NewProjectForm() {
                     </svg>
                   )}
                 </div>
-                <div className={`w-7 h-7 rounded-lg ${a.avatar} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+                <div className={`w-7 h-7 rounded-lg ${avatarColor(idx)} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
                   {initials(a.nombre)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-semibold truncate transition-colors ${isSelected ? 'text-violet-200' : 'text-[#e8e8f0]'}`}>
                     {a.nombre}
                   </p>
-                  <p className="text-[#555577] text-xs truncate">{a.rol} · {a.depto}</p>
+                  <p className="text-[#555577] text-xs truncate">{a.rol}</p>
                 </div>
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${a.dot}`} />
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor(idx)}`} />
               </button>
             )
           })}
