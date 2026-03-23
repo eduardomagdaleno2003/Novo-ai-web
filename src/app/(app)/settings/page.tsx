@@ -36,7 +36,7 @@ const integraciones = [
 ]
 
 const sysInfo = [
-  { label: 'Plataforma', value: 'NOVO IA v1.0' },
+  { label: 'Plataforma', value: 'NOVO IA Materialidad v1.0' },
   { label: 'Stack',      value: 'Next.js 15 + Supabase' },
   { label: 'Modelo IA',  value: 'LLaMA 3.3 70B (Groq)' },
   { label: 'Entorno',    value: process.env.NODE_ENV ?? 'development' },

@@ -439,7 +439,7 @@ export function NewProjectForm() {
             <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
             <div className="w-3 h-3 rounded-full bg-emerald-500/60" />
           </div>
-          <span className="text-[#555577] text-xs font-mono ml-2">novo-ia — agentes</span>
+          <span className="text-[#555577] text-xs font-mono ml-2">novo-ia materialidad — agentes</span>
           {phase === 'running' && (
             <span className="ml-auto flex items-center gap-1.5 text-[#555577] text-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> ejecutando

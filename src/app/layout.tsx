@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NOVO IA — Multi-Agent Platform",
+  title: "NOVO IA Materialidad — Multi-Agent Platform",
   description: "Plataforma SaaS de agentes IA para automatización de oficina",
 };
 

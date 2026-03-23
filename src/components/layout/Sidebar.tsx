@@ -34,7 +34,7 @@ export function Sidebar() {
             <Zap className="w-4 h-4 text-white" />
           </div>
           <div>
-            <span className="text-[#e8e8f0] font-bold text-sm">NOVO IA</span>
+            <span className="text-[#e8e8f0] font-bold text-sm">NOVO IA Materialidad</span>
             <p className="text-[#555577] text-xs">Multi-Agent Platform</p>
           </div>
         </div>
