@@ -6,17 +6,36 @@ import { Button } from '@/components/ui/Button'
 import { Zap, CheckCircle2, XCircle, ArrowRight, ArrowLeft, Users, Mail } from 'lucide-react'
 import type { Agente } from '@/types/database'
 
+// ── Área inferida del rol ─────────────────────────────────────────────────────
+const AREAS: { label: string; color: string; dot: string; keywords: string[] }[] = [
+  { label: 'Dirección',         color: 'bg-blue-600',    dot: 'bg-blue-400',    keywords: ['director', 'ceo', 'chief', 'vp ', 'presidente', 'gerente general'] },
+  { label: 'Finanzas',          color: 'bg-emerald-600', dot: 'bg-emerald-400', keywords: ['financ', 'contab', 'tesor', 'presupuesto', 'cfo', 'fiscal'] },
+  { label: 'Tecnología',        color: 'bg-violet-600',  dot: 'bg-violet-400',  keywords: ['tecnolog', 'sistem', 'software', 'datos', 'data', 'cto', 'it ', 'developer', 'digital'] },
+  { label: 'Recursos Humanos',  color: 'bg-orange-600',  dot: 'bg-orange-400',  keywords: ['rh', 'recurso', 'human', 'talent', 'people', 'nómina', 'nomina', 'capacitac'] },
+  { label: 'Comercial',         color: 'bg-pink-600',    dot: 'bg-pink-400',    keywords: ['marketing', 'comercial', 'ventas', 'venta', 'cliente', 'crm', 'mercado'] },
+  { label: 'Operaciones',       color: 'bg-cyan-600',    dot: 'bg-cyan-400',    keywords: ['operacion', 'logis', 'supply', 'produc', 'calidad', 'proceso', 'proyecto'] },
+  { label: 'Legal y Riesgos',   color: 'bg-red-600',     dot: 'bg-red-400',     keywords: ['legal', 'juridic', 'cumplim', 'compliance', 'riesgo', 'risk', 'audit', 'control'] },
+]
+const AREA_GENERAL = { label: 'General', color: 'bg-slate-600', dot: 'bg-slate-400' }
+
+function getArea(rol: string) {
+  const r = rol.toLowerCase()
+  return AREAS.find(a => a.keywords.some(k => r.includes(k))) ?? AREA_GENERAL
+}
+
+function groupByArea(agentes: import('@/types/database').Agente[]) {
+  const map = new Map<string, { area: typeof AREA_GENERAL; members: typeof agentes }>()
+  agentes.forEach(a => {
+    const area = getArea(a.rol)
+    if (!map.has(area.label)) map.set(area.label, { area, members: [] })
+    map.get(area.label)!.members.push(a)
+  })
+  return [...map.values()].sort((a, b) => a.area.label.localeCompare(b.area.label))
+}
+
 // ── Colores de avatar ─────────────────────────────────────────────────────────
-const AVATAR_COLORS = [
-  'bg-blue-600', 'bg-violet-600', 'bg-orange-600', 'bg-emerald-600',
-  'bg-pink-600',  'bg-cyan-600',   'bg-red-600',    'bg-yellow-600',
-]
-const DOT_COLORS = [
-  'bg-blue-400', 'bg-violet-400', 'bg-orange-400', 'bg-emerald-400',
-  'bg-pink-400',  'bg-cyan-400',   'bg-red-400',    'bg-yellow-400',
-]
-function avatarColor(idx: number) { return AVATAR_COLORS[idx % AVATAR_COLORS.length] }
-function dotColor(idx: number)    { return DOT_COLORS[idx % DOT_COLORS.length] }
+function avatarColor(rol: string) { return getArea(rol).color }
+function dotColor(rol: string)    { return getArea(rol).dot }
 
 function initials(nombre: string) {
   return nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
@@ -290,42 +309,66 @@ export function NewProjectForm() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 max-h-[380px] overflow-y-auto pr-1">
-          {agentes.map((a, idx) => {
-            const isSelected = selected.has(a.id)
-            return (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => toggleAgent(a.id)}
-                className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${
-                  isSelected
-                    ? 'bg-violet-600/15 border-violet-600/40'
-                    : 'bg-[#0f0f1a] border-[#1e1e35] hover:border-[#2a2a45]'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-all ${
-                  isSelected ? 'bg-violet-600 border-violet-600' : 'border-[#2a2a45]'
-                }`}>
-                  {isSelected && (
-                    <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10">
-                      <path d="M1.5 5l2.5 2.5L8.5 2.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-                <div className={`w-7 h-7 rounded-lg ${avatarColor(idx)} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-                  {initials(a.nombre)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-xs font-semibold truncate transition-colors ${isSelected ? 'text-violet-200' : 'text-[#e8e8f0]'}`}>
-                    {a.nombre}
-                  </p>
-                  <p className="text-[#555577] text-xs truncate">{a.rol}</p>
-                </div>
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor(idx)}`} />
-              </button>
-            )
-          })}
+        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+          {groupByArea(agentes).map(({ area, members }) => (
+            <div key={area.label}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`w-2 h-2 rounded-full ${area.dot}`} />
+                <span className="text-[#e8e8f0] text-xs font-semibold">{area.label}</span>
+                <span className="text-[#555577] text-xs">({members.length})</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allSelected = members.every(m => selected.has(m.id))
+                    setSelected(prev => {
+                      const next = new Set(prev)
+                      members.forEach(m => allSelected ? next.delete(m.id) : next.add(m.id))
+                      return next
+                    })
+                  }}
+                  className="ml-auto text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  {members.every(m => selected.has(m.id)) ? 'Quitar área' : 'Seleccionar área'}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {members.map(a => {
+                  const isSelected = selected.has(a.id)
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => toggleAgent(a.id)}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? 'bg-violet-600/15 border-violet-600/40'
+                          : 'bg-[#0f0f1a] border-[#1e1e35] hover:border-[#2a2a45]'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-all ${
+                        isSelected ? 'bg-violet-600 border-violet-600' : 'border-[#2a2a45]'
+                      }`}>
+                        {isSelected && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10">
+                            <path d="M1.5 5l2.5 2.5L8.5 2.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div className={`w-6 h-6 rounded-lg ${avatarColor(a.rol)} flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0`}>
+                        {initials(a.nombre)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-semibold truncate ${isSelected ? 'text-violet-200' : 'text-[#e8e8f0]'}`}>
+                          {a.nombre}
+                        </p>
+                        <p className="text-[#555577] text-[10px] truncate">{a.rol}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="flex gap-3 pt-1 border-t border-[#1e1e35]">
