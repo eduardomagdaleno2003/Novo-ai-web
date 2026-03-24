@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
-import { Zap, CheckCircle2, XCircle, ArrowRight, ArrowLeft, Users, Mail } from 'lucide-react'
+import { Zap, CheckCircle2, XCircle, ArrowRight, ArrowLeft, Users } from 'lucide-react'
 import type { Agente } from '@/types/database'
 
 // ── Área inferida del rol ─────────────────────────────────────────────────────
@@ -41,29 +41,6 @@ function initials(nombre: string) {
   return nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
 }
 
-function agoDate(days: number) {
-  const d = new Date()
-  d.setDate(d.getDate() - days)
-  return d.toISOString().split('T')[0]
-}
-
-const EMAIL_LABELS = [
-  { de: 'Carlos M.',   para: 'Miguel Á.', desc: 'Brief — solicita reporte financiero y dashboard' },
-  { de: 'Carlos M.',   para: 'Laura S.',  desc: 'Brief — solicita deck ejecutivo y acta de arranque' },
-  { de: 'Miguel Á.',   para: 'Laura S.',  desc: 'Comparte datos clave de los Excel' },
-  { de: 'Miguel Á.',   para: 'Carlos M.', desc: 'Confirmación del análisis completo' },
-  { de: 'Laura S.',    para: 'Miguel Á.', desc: 'Acuse de datos y confirmación de slides usados' },
-  { de: 'Laura S.',    para: 'Carlos M.', desc: 'Confirmación del deck y acta de arranque' },
-]
-
-const DEFAULT_DATES = [
-  { date: agoDate(6), time: '09:12' },
-  { date: agoDate(6), time: '09:31' },
-  { date: agoDate(4), time: '10:05' },
-  { date: agoDate(4), time: '10:48' },
-  { date: agoDate(3), time: '09:55' },
-  { date: agoDate(3), time: '11:22' },
-]
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -82,7 +59,6 @@ export function NewProjectForm() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   // Step 3 — email dates
-  const [emailDates, setEmailDates] = useState(DEFAULT_DATES)
 
   // Terminal
   const [lines, setLines] = useState<string[]>([])
@@ -122,10 +98,6 @@ export function NewProjectForm() {
     else setSelected(new Set(agentes.map(a => a.id)))
   }
 
-  function updateEmailDate(i: number, field: 'date' | 'time', value: string) {
-    setEmailDates(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e))
-  }
-
   // ── Final submit ──────────────────────────────────────────────────────────
 
   async function handleSubmit() {
@@ -158,8 +130,6 @@ export function NewProjectForm() {
       ? ` Equipo asignado: ${selectedAgentes.map(a => `${a.nombre} (${a.rol})`).join(', ')}.`
       : ''
     const tarea = `${nombre}${descripcion ? '. ' + descripcion : ''}${teamNote}`
-    const fechas = emailDates.map(e => `${e.date} ${e.time}`)
-
     setLines([`🚀 Iniciando proyecto: ${nombre}...`])
     if (selectedAgentes.length > 0) {
       setLines(prev => [...prev, `👥 Equipo: ${selectedAgentes.map(a => a.nombre).join(', ')}`])
@@ -170,7 +140,7 @@ export function NewProjectForm() {
     const res = await fetch('/api/run-project', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tarea, fechas, agentes: agentesSeleccionados }),
+      body: JSON.stringify({ tarea, agentes: agentesSeleccionados }),
     })
 
     const reader = res.body!.getReader()
@@ -207,9 +177,7 @@ export function NewProjectForm() {
 
   // ── Progress bar ──────────────────────────────────────────────────────────
 
-  const steps = runAgents
-    ? ['Datos', 'Agentes', 'Fechas de correos']
-    : ['Datos', 'Agentes']
+  const steps = ['Datos', 'Agentes']
 
   function ProgressBar({ current }: { current: number }) {
     return (
@@ -372,69 +340,10 @@ export function NewProjectForm() {
         </div>
 
         <div className="flex gap-3 pt-1 border-t border-[#1e1e35]">
-          {runAgents ? (
-            <Button type="button" onClick={() => setPhase('step3')}>
-              <Mail className="w-4 h-4" /> Siguiente
-            </Button>
-          ) : (
-            <Button type="button" onClick={handleSubmit}>
-              <ArrowRight className="w-4 h-4" /> Crear Proyecto
-            </Button>
-          )}
+          <Button type="button" disabled={selected.size === 0} onClick={handleSubmit}>
+            <Zap className="w-4 h-4" /> {runAgents ? 'Crear y Ejecutar' : 'Crear Proyecto'}
+          </Button>
           <Button type="button" variant="secondary" onClick={() => setPhase('step1')}>
-            <ArrowLeft className="w-4 h-4" /> Volver
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (phase === 'step3') {
-    return (
-      <div className="space-y-4">
-        <ProgressBar current={2} />
-
-        <div>
-          <h3 className="text-[#e8e8f0] text-sm font-semibold">Fechas de los correos</h3>
-          <p className="text-[#555577] text-xs mt-0.5">Elige cuándo se envió cada email dentro del proyecto</p>
-        </div>
-
-        <div className="space-y-2">
-          {EMAIL_LABELS.map((lbl, i) => (
-            <div key={i} className="rounded-xl bg-[#0f0f1a] border border-[#1e1e35] px-4 py-3">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 pt-0.5">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[#e8e8f0] text-xs font-semibold">{lbl.de}</span>
-                    <span className="text-[#555577] text-xs">→</span>
-                    <span className="text-violet-300 text-xs font-semibold">{lbl.para}</span>
-                  </div>
-                  <p className="text-[#555577] text-xs truncate">{lbl.desc}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <input
-                    type="date"
-                    value={emailDates[i].date}
-                    onChange={e => updateEmailDate(i, 'date', e.target.value)}
-                    className="bg-[#141428] border border-[#1e1e35] rounded-lg px-2 py-1.5 text-[#e8e8f0] text-xs focus:outline-none focus:border-violet-600/50 transition-colors"
-                  />
-                  <input
-                    type="time"
-                    value={emailDates[i].time}
-                    onChange={e => updateEmailDate(i, 'time', e.target.value)}
-                    className="bg-[#141428] border border-[#1e1e35] rounded-lg px-2 py-1.5 text-[#e8e8f0] text-xs focus:outline-none focus:border-violet-600/50 transition-colors w-24"
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-3 pt-1 border-t border-[#1e1e35]">
-          <Button type="button" onClick={handleSubmit}>
-            <Zap className="w-4 h-4" /> Crear y Ejecutar
-          </Button>
-          <Button type="button" variant="secondary" onClick={() => setPhase('step2')}>
             <ArrowLeft className="w-4 h-4" /> Volver
           </Button>
         </div>
