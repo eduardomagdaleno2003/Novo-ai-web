@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
-import { Zap, CheckCircle2, XCircle, ArrowRight, ArrowLeft, Users } from 'lucide-react'
+import { Zap, CheckCircle2, XCircle, ArrowRight, ArrowLeft, Users, Mail } from 'lucide-react'
 import type { Agente } from '@/types/database'
 
 // ── Área inferida del rol ─────────────────────────────────────────────────────
@@ -41,6 +41,35 @@ function initials(nombre: string) {
   return nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
 }
 
+function shortName(nombre: string) {
+  const parts = nombre.trim().split(' ')
+  return parts[0] + (parts[1] ? ' ' + parts[1][0] + '.' : '')
+}
+
+function agoDate(days: number) {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString().split('T')[0]
+}
+
+// Genera pares de correo round-robin entre los agentes seleccionados
+function buildEmailPairs(names: string[]) {
+  const pairs: { de: string; para: string }[] = []
+  for (let i = 0; i < names.length; i++) {
+    for (let j = 0; j < names.length; j++) {
+      if (i !== j) pairs.push({ de: names[i], para: names[j] })
+    }
+  }
+  return pairs
+}
+
+function buildDefaultDates(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    date: agoDate(Math.max(1, 6 - Math.floor(i / 2))),
+    time: i % 2 === 0 ? '09:12' : '10:05',
+  }))
+}
+
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -59,6 +88,21 @@ export function NewProjectForm() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   // Step 3 — email dates
+  const [emailPairs, setEmailPairs] = useState<{ de: string; para: string }[]>([])
+  const [emailDates, setEmailDates] = useState<{ date: string; time: string }[]>([])
+
+  function goToStep3() {
+    const sel = agentes.filter(a => selected.has(a.id))
+    const names = sel.map(a => shortName(a.nombre))
+    const pairs = buildEmailPairs(names)
+    setEmailPairs(pairs)
+    setEmailDates(buildDefaultDates(pairs.length))
+    setPhase('step3')
+  }
+
+  function updateEmailDate(i: number, field: 'date' | 'time', value: string) {
+    setEmailDates(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e))
+  }
 
   // Terminal
   const [lines, setLines] = useState<string[]>([])
@@ -140,7 +184,7 @@ export function NewProjectForm() {
     const res = await fetch('/api/run-project', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tarea, agentes: agentesSeleccionados }),
+      body: JSON.stringify({ tarea, fechas: emailDates.map(e => `${e.date} ${e.time}`), agentes: agentesSeleccionados }),
     })
 
     const reader = res.body!.getReader()
@@ -177,7 +221,7 @@ export function NewProjectForm() {
 
   // ── Progress bar ──────────────────────────────────────────────────────────
 
-  const steps = ['Datos', 'Agentes']
+  const steps = runAgents ? ['Datos', 'Agentes', 'Fechas de correos'] : ['Datos', 'Agentes']
 
   function ProgressBar({ current }: { current: number }) {
     return (
@@ -340,10 +384,66 @@ export function NewProjectForm() {
         </div>
 
         <div className="flex gap-3 pt-1 border-t border-[#1e1e35]">
-          <Button type="button" disabled={selected.size === 0} onClick={handleSubmit}>
-            <Zap className="w-4 h-4" /> {runAgents ? 'Crear y Ejecutar' : 'Crear Proyecto'}
-          </Button>
+          {runAgents ? (
+            <Button type="button" disabled={selected.size === 0} onClick={goToStep3}>
+              <Mail className="w-4 h-4" /> Siguiente
+            </Button>
+          ) : (
+            <Button type="button" disabled={selected.size === 0} onClick={handleSubmit}>
+              <ArrowRight className="w-4 h-4" /> Crear Proyecto
+            </Button>
+          )}
           <Button type="button" variant="secondary" onClick={() => setPhase('step1')}>
+            <ArrowLeft className="w-4 h-4" /> Volver
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (phase === 'step3') {
+    return (
+      <div className="space-y-4">
+        <ProgressBar current={2} />
+
+        <div>
+          <h3 className="text-[#e8e8f0] text-sm font-semibold">Fechas de los correos</h3>
+          <p className="text-[#555577] text-xs mt-0.5">Elige cuándo se envió cada email dentro del proyecto</p>
+        </div>
+
+        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+          {emailPairs.map((lbl, i) => (
+            <div key={i} className="rounded-xl bg-[#0f0f1a] border border-[#1e1e35] px-4 py-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[#e8e8f0] text-xs font-semibold truncate">{lbl.de}</span>
+                  <span className="text-[#555577] text-xs">→</span>
+                  <span className="text-violet-300 text-xs font-semibold truncate">{lbl.para}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <input
+                    type="date"
+                    value={emailDates[i]?.date ?? ''}
+                    onChange={e => updateEmailDate(i, 'date', e.target.value)}
+                    className="bg-[#141428] border border-[#1e1e35] rounded-lg px-2 py-1.5 text-[#e8e8f0] text-xs focus:outline-none focus:border-violet-600/50 transition-colors"
+                  />
+                  <input
+                    type="time"
+                    value={emailDates[i]?.time ?? ''}
+                    onChange={e => updateEmailDate(i, 'time', e.target.value)}
+                    className="bg-[#141428] border border-[#1e1e35] rounded-lg px-2 py-1.5 text-[#e8e8f0] text-xs focus:outline-none focus:border-violet-600/50 transition-colors w-24"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-3 pt-1 border-t border-[#1e1e35]">
+          <Button type="button" onClick={handleSubmit}>
+            <Zap className="w-4 h-4" /> Crear y Ejecutar
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => setPhase('step2')}>
             <ArrowLeft className="w-4 h-4" /> Volver
           </Button>
         </div>
